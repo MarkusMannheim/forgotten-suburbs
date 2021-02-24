@@ -109,11 +109,11 @@ h1, p {
 #tip {
   position: absolute;
   pointer-events: none;
-  color: white;
-  background: #666;
+  color: #333;
+  background: white;
   padding: 5px;
   border-radius: 5px;
-  box-shadow: 1px 1px 3px white;
+  box-shadow: 1px 1px 3px 333;
 }
 #tip h1 {
   font-size: 1.2rem;
@@ -123,6 +123,6 @@ h1, p {
   font-size: .9rem;
 }
 #tip span {
-  color: #FFB300;
+  color: #666;
   font-family: "ABCSans Black", "Arial Black", sans-serif;
 }
