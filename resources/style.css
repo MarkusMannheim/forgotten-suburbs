@@ -35,11 +35,94 @@ green: #00A388
 body {
   opacity: 0;
 }
-body, #map {
-  margin: 0;
+body, #map, #mapSvg {
   position: fixed;
   top: 0;
   bottom: 0;
   left: 0;
   right: 0;
+  height: 100%;
+  width: 100%;
+}
+h1, p {
+  margin: 0;
+}
+#filters h1 {
+  font-size: 1.75rem;
+  margin: .5rem 0;
+}
+#panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  height: 100%;
+  width: 20%;
+  background: #009CBF;
+  color: white;
+  text-align: center;
+  display: flex;
+  flex-flow: column;
+}
+#filters {
+}
+#filters div {
+  font-size: 1.25rem;
+  padding: .25rem;
+  margin: 0rem 1rem 1rem 1rem;
+  border: solid 2px white;
+}
+#filters div.selected {
+  background: #F75F00;
+}
+#listHeader {
+  color: #333;
+  background: white;
+  font-size: 1.75rem;
+  padding: .5rem 0;
+}
+#list {
+  color: #333;
+  background: white;
+  overflow-y: auto;
+  height: 100%;
+}
+.suburb {
+  fill: #F75F00;
+  stroke: white;
+  stroke-width: 2;
+  pointer-events: all;
+}
+.suburb.omitted {
+  display: none;
+}
+.suburbList {
+  text-transform: uppercase;
+  font-family: "ABCSans Regular", "Arial", sans-serif;
+  font-size: 1.1rem;
+  padding: .1rem;
+  margin: 0rem 1rem;
+}
+.suburbList:nth-child(odd) {
+  background: #f2f2f2;
+}
+#tip {
+  position: absolute;
+  pointer-events: none;
+  color: white;
+  background: #666;
+  padding: 5px;
+  border-radius: 5px;
+  box-shadow: 1px 1px 3px white;
+}
+#tip h1 {
+  font-size: 1.2rem;
+}
+#tip p {
+  font-family: "ABCSans Regular", "Arial", sans-serif;
+  font-size: .9rem;
+}
+#tip span {
+  color: #FFB300;
+  font-family: "ABCSans Black", "Arial Black", sans-serif;
 }

@@ -15,58 +15,213 @@
   </head>
   <body>
     <div id="map"></div>
+    <div id="panel">
+      <div id="filters">
+        <h1>FILTERS:</h1>
+        <div>OLD SUBURB</div>
+        <div>LOW INCOME</div>
+        <div>SLUGGISH GROWTH</div>
+        <div>PROPERTY SLUMP</div>
+      </div>
+      <h1 id="listHeader">SUBURBS:</h1>
+      <div id="list">
+        <div id="suburbList"></div>
+      </div>
+    </div>
+    <div id="tip"></div>
     <script>
       // load LGA data
-      d3.json("./data/lgaData.topojson")
+      d3.json("./data/forgottenSuburbs.topojson")
         .then(function(data) {
-          lgas = topojson.feature(data, data.objects.lgas);
-          // set up MapBox engine
+          // format data
+          suburbData = topojson.feature(data, data.objects.suburbs);
+          checks = [
+            ["OLD SUBURB", false],
+            ["LOW INCOME", false],
+            ["SLUGGISH GROWTH", false],
+            ["PROPERTY SLUMP", false],
+          ];
+          // page elements
+          filters = d3.select("#filters");
+          suburbList = d3.select("#suburbList");
+          tip =  d3.select("#tip");
+          dataList = suburbData
+            .features.map(function(d) { return d.properties.suburb; })
+            .sort();
           mapboxgl.accessToken = "pk.eyJ1IjoibmV3cy1vbjFpbmUiLCJhIjoiR3FlZFZlVSJ9._30EFE9XYhQitqf4gzRG-g";
           map = new mapboxgl.Map({
             container: "map",
-            attributionControl: false,
-            style: "mapbox://styles/mapbox/light-v10",
-            center: [149.126944, -35.293056],
-            zoom: 8
+            style: "mapbox://styles/mapbox/dark-v10",
+            center: [149.126944, -35.313056],
+            zoom: 5,
+            antialias: true
           });
           map.on("load", function() {
-            // add navigation and custom attribution
-            map.addControl(new mapboxgl.NavigationControl())
-              .addControl(new mapboxgl.AttributionControl({
-                compact: true,
-                customAttribution: "ACT Health (COVID-19 advice), ABS (LGA boundaries)"
-              }))
-              // add GeoJSON
-              .addSource("lgas", {
-                type: "geojson",
-                data: lgas
-              })
-              .addLayer({
-                id: "lgas",
-                type: "fill",
-                source: "lgas",
-                paint: {
-                  "fill-color": "#01CFFF",
-                  "fill-opacity": .5,
-                  "fill-outline-color": "white"
-                }
-              });
+            window.addEventListener("resize", resize);
+            resize();
+            projection = calcProjection();
+            path = d3.geoPath();
+            // svg elements
+            mapContainer = map.getCanvasContainer();
+            mapSvg = d3.select(mapContainer)
+              .append("svg")
+                .attr("id", "mapSvg");
+            mapSvgGroup = mapSvg
+              .append("g")
+                .attr("id", "mapSvgGroup");
+            suburbs = mapSvgGroup
+              .selectAll(".suburb")
+                .data(suburbData.features)
+              .enter().append("path")
+                .classed("suburb", true)
+                .on("mouseover", hover)
+                .on("mouseout", hoverOut);
+            filters.selectAll("div")
+              .on("click", clickFilter);
+            suburbList.selectAll(".suburbList")
+                .data(dataList)
+              .enter().append("div")
+                .classed("suburbList", true)
+                .text(function(d) { return d; });
+            map.on("viewreset", render)
+              .on("move", render)
+              .on("move", render);
+            render();
             // fade in
-            d3.select("body")
-              .transition()
-                .duration(500)
-                .style("opacity", 1);
-            // transition to LGAs
-            d3.timeout(function() {
-              bounds = d3.geoBounds(lgas);
-              map.fitBounds(bounds, {
-                padding: 80,
-                duration: 5000,
-                essential: true
-              });
-            }, 1000);
+            d3.select("body").transition()
+              .duration(500)
+              .style("opacity", 1);
+            map.fitBounds(d3.geoBounds(suburbData), {
+              padding: {
+                top: 32,
+                bottom: 32,
+                left: 32,
+                right: panelWidth + 32
+              },
+              duration: 5000,
+              essential: true
+            });
           });
         });
+      function render() {
+        projection = calcProjection();
+        path.projection(projection);
+        suburbs.attr("d", path);
+        tip.style("opacity", 0);
+      }
+      function calcProjection() {
+        center = map.getCenter();
+        zoom = map.getZoom();
+        scale = 256 / Math.PI * Math.pow(2, zoom);
+        return d3.geoMercator()
+          .center([center.lng, center.lat])
+          .translate([width / 2, height / 2])
+          .scale(scale);
+      }
+      function resize() {
+        dimensions = document.body.getBoundingClientRect();
+        width = dimensions.width;
+        height = dimensions.height;
+        panelWidth = width * .2;
+      }
+      function clickFilter() {
+        filter = this.innerText;
+        this.classList.toggle("selected");
+        changeMap(filter);
+      }
+      function changeMap(filter) {
+        q_pop = suburbData.features.map(function(d) {
+            return d.properties.population_2006;
+          }).sort(d3.ascending)[69];
+        q_income = suburbData.features.map(function(d) {
+            return d.properties.household_income;
+          }).sort(d3.ascending)[46];
+        q_growth = suburbData.features.map(function(d) {
+            return d.properties.population_growth;
+          }).sort(d3.ascending)[46];
+        q_prices = suburbData.features.map(function(d) {
+            return d.properties.house_price_growth;
+          }).sort(d3.ascending)[46];
+        for (i in checks) {
+          if (checks[i][0] == filter) {
+            checks[i][1] = !checks[i][1];
+          }
+        }
+        dataList = suburbData
+          .features.map(function(d) { return d.properties.suburb; })
+          .sort();
+        suburbs.each(function(d) {
+          this.classList.remove("omitted");
+          if (checks[0][1] && d.properties.population_2006 > q_pop) {
+            this.classList.add("omitted");
+            index = dataList.indexOf(d.properties.suburb);
+            if (index > -1) {
+              dataList.splice(index, 1);
+            }
+          }
+          if (checks[1][1] && d.properties.household_income > q_income) {
+            this.classList.add("omitted");
+            index = dataList.indexOf(d.properties.suburb);
+            if (index > -1) {
+              dataList.splice(index, 1).sort();
+            }
+          }
+          if (checks[2][1] && d.properties.population_growth > q_growth) {
+            this.classList.add("omitted");
+            index = dataList.indexOf(d.properties.suburb);
+            if (index > -1) {
+              dataList.splice(index, 1).sort();
+            }
+          }
+          if (checks[3][1] && d.properties.house_price_growth > q_prices) {
+            this.classList.add("omitted");
+            index = dataList.indexOf(d.properties.suburb);
+            if (index > -1) {
+              dataList.splice(index, 1).sort();
+            }
+          }
+          suburbList.selectAll(".suburbList")
+            .remove();
+          suburbList.selectAll(".suburbList")
+              .data(dataList)
+            .enter().append("div")
+              .classed("suburbList", true)
+              .text(function(d) { return d; });
+        });
+      }
+      function hover(event, d) {
+        // affix tooltip
+        let tipSpot = projection(d3.geoCentroid(d));
+        console.log(d);
+        tip.style("opacity", 0)
+          .style("top", "0px")
+          .style("left", "0px")
+          .html("<h1>" + d.properties.suburb + "</h1>"
+              + "<p>2006 population: <span>" + d3.format(",.0f")(d.properties.population_2006) + " people</span></p>"
+              + "<p>2016 population: <span>" + d3.format(",.0f")(d.properties.population_2016) + " people</span></p>"
+              + "<p>population growth (2006 to 2016): <span>" + d3.format(",.1%")(d.properties.population_growth) + "</span></p>"
+              + "<p>median household income (2016): <span>$" + d3.format(",.0f")(d.properties.household_income) + "</span></p>"
+              + "<p>median house price (2020): <span>$" + d3.format(",.0f")(d.properties.house_price_2020) + "</span></p>"
+              + "<p>house price growth (2007 to 2020): <span>" + d3.format(",.1%")(d.properties.house_price_growth) + "</span></p>");
+        let tipWidth = parseFloat(tip.style("width"));
+        let tipHeight = parseFloat(tip.style("height"));
+        tip.style("top", function() {
+            return tipSpot[1] + tipHeight + 26 > height ?
+              (tipSpot[1] - tipHeight - 26) + "px":
+              (tipSpot[1] + 10) + "px";
+          })
+          .style("left", function() {
+            return tipSpot[0] + (tipWidth / 2) + 16 > (width - panelWidth) ?
+              (width - panelWidth - tipWidth - 16) + "px" :
+              tipSpot[0] - (tipWidth / 2) - 16 < 0 ?
+              "16px" :
+              (tipSpot[0] - (tipWidth / 2)) + "px";
+          })
+          .style("opacity", 1);
+      }
+      function hoverOut() {
+       tip.style("opacity", 0);
+     }
     </script>
   </body>
 </html>
